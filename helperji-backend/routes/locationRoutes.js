@@ -1,12 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const Location = require("../models/Location");
+const Location = require("../models/location");
+const Staff = require("../models/Staff");
 
-
-// ✅ POST: Save staff location
+// ✅ POST: Save current location to Location model (Live Tracking)
 router.post("/location", async (req, res) => {
   const { staffId, lat, lng, timestamp } = req.body;
-
   if (!staffId || !lat || !lng || !timestamp) {
     return res.status(400).json({ message: "Missing fields" });
   }
@@ -15,11 +14,9 @@ router.post("/location", async (req, res) => {
     const staff = await Staff.findById(staffId);
     if (!staff) return res.status(404).json({ message: "Staff not found" });
 
-    // Push location to history
-    staff.locationHistory.push({ lat, lng, timestamp });
-
-    // Save latest location
+    // Save current location and add to history
     staff.currentLocation = { lat, lng, timestamp };
+    staff.locationHistory.push({ lat, lng, timestamp });
 
     await staff.save();
     res.status(200).json({ message: "Location updated successfully" });
@@ -29,7 +26,7 @@ router.post("/location", async (req, res) => {
   }
 });
 
-// ✅ GET: Fetch location by staff ID
+// ✅ GET: Get current location + history of staff
 router.get("/location/:staffId", async (req, res) => {
   try {
     const staff = await Staff.findById(req.params.staffId);
@@ -40,13 +37,18 @@ router.get("/location/:staffId", async (req, res) => {
       locationHistory: staff.locationHistory,
     });
   } catch (error) {
-    console.error("GET /location error:", error);
+    console.error("GET /location/:staffId error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-router.post("/update", async (req, res) => {
+// ✅ POST: Log location to Location collection (optional logs)
+router.post("/log-location", async (req, res) => {
   const { staffId, lat, lng } = req.body;
+
+  if (!staffId || !lat || !lng) {
+    return res.status(400).json({ message: "Missing data" });
+  }
 
   try {
     const newLocation = new Location({
@@ -57,13 +59,14 @@ router.post("/update", async (req, res) => {
     });
 
     await newLocation.save();
-    res.status(200).json({ message: "Location saved" });
+    res.status(200).json({ message: "Location logged successfully" });
   } catch (err) {
-    res.status(500).json({ error: "Server error while saving location" });
+    console.error("POST /log-location error:", err);
+    res.status(500).json({ message: "Server error while logging location" });
   }
 });
 
-// Get all live locations
+// ✅ GET: Get all logged locations (from Location collection)
 router.get("/all", async (req, res) => {
   try {
     const locations = await Location.find({});
@@ -72,5 +75,22 @@ router.get("/all", async (req, res) => {
     res.status(500).json({ error: "Error fetching locations" });
   }
 });
+
+
+// ✅ New: Get ALL location history for route drawing
+router.get('/location-history/:staffId', async (req, res) => {
+  try {
+    const { staffId } = req.params;
+
+    const locations = await StaffLocation.find({ staffId }).sort({ timestamp: 1 }); // oldest to newest
+
+    res.json(locations);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch location history' });
+  }
+});
+
+
+
 
 module.exports = router;

@@ -4,7 +4,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const { Parser } = require("json2csv");
-
+const locationHistory = require('../models/location');
+const attendance = require('../models/Attendance')
 const Staff = require("../models/Staff");
 
 // ✅ Create new staff
@@ -204,5 +205,20 @@ router.get("/attendance/all", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch attendance" });
   }
 });
+
+ router.get('/location-history/:id', async (req, res) => {
+  try {
+    const staff = await Staff.findById(req.params.id);
+
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff not found' });
+    }
+
+    res.json({ locationHistory: staff.locationHistory });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 
 module.exports = router;
